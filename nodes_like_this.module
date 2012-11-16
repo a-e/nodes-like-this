@@ -1,0 +1,176 @@
+<?php
+/* List similar nodes when creating or editing select node types. */
+
+function nodes_like_this_form() {
+  $options = array();
+  $result = db_query('SELECT n.type, n.name FROM {node_type} n');
+  foreach ($result as $record) {
+    $options[$record->type] = $record->name;
+  }
+  $form = array();
+  $form['nodes_like_this_content_types'] = array(
+    '#type' => 'select',
+    '#title' => t('Content Types'),
+    '#options' => $options,
+    '#multiple' => TRUE,
+    '#default_value' => variable_get('nodes_like_this_content_types', array()),
+    '#description' => t('Select the content types for which you want to see similar nodes.  Clear cache to make the views appear.'),
+    // List selected content types with this:
+    //implode(',', array_keys(variable_get('nodes_like_this_content_types', array()))),
+  );
+  return system_settings_form($form);
+}
+
+function nodes_like_this_menu() {
+
+  $items = array();
+
+  $items['admin/config/content/nodes_like_this'] = array(
+    'title' => 'Nodes like this module settings',
+    'description' => 'Nodes Like This global settings. See also individual Views.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodes_like_this_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+// Add stock Views in the form validate function if no existing views are present.
+// http://www.packtpub.com/article/creating-views-3-programmatically
+/**
+ * Implements hook_views_api().
+ */
+function nodes_like_this_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'nodes_like_this'),
+  );
+}
+/*
+ * Implements hook_views_default_views()
+ */
+function nodes_like_this_views_default_views() {
+  $views = array();
+  $nodes = variable_get('nodes_like_this_content_types', array());
+  foreach ($nodes as $node => $name) {
+    $view_name = $name . ' ' . t('nodes like this');
+    // Begin copy and paste of output from the Export tab of a view.
+    $view = new view;
+    $view->name = $node . '_nodes_like_this';
+    $view->description = 'Lists ' . $name . ' nodes by title, in JSON format.';
+    $view->tag = 'default';
+    $view->base_table = 'node';
+    $view->human_name = $view_name;
+    $view->core = 7;
+    $view->api_version = '3.0-alpha1';
+    $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+
+    /* Display: Master */
+    $handler = $view->new_display('default', 'Master', 'default');
+    $handler->display->display_options['title'] = $view_name;
+    $handler->display->display_options['use_more_always'] = FALSE;
+    $handler->display->display_options['access']['type'] = 'perm';
+    $handler->display->display_options['access']['perm'] = 'administer nodes';
+    $handler->display->display_options['cache']['type'] = 'none';
+    $handler->display->display_options['query']['type'] = 'views_query';
+    $handler->display->display_options['query']['options']['query_comment'] = FALSE;
+    $handler->display->display_options['exposed_form']['type'] = 'basic';
+    $handler->display->display_options['pager']['type'] = 'none';
+    $handler->display->display_options['pager']['options']['offset'] = '0';
+    $handler->display->display_options['style_plugin'] = 'views_json';
+
+    /* Field: Content: Title */
+    $handler->display->display_options['fields']['title']['id'] = 'title';
+    $handler->display->display_options['fields']['title']['table'] = 'node';
+    $handler->display->display_options['fields']['title']['field'] = 'title';
+    $handler->display->display_options['fields']['title']['label'] = '';
+    $handler->display->display_options['fields']['title']['alter']['alter_text'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['make_link'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['absolute'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['word_boundary'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['ellipsis'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['strip_tags'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['trim'] = 0;
+    $handler->display->display_options['fields']['title']['alter']['html'] = 0;
+    $handler->display->display_options['fields']['title']['hide_empty'] = 0;
+    $handler->display->display_options['fields']['title']['empty_zero'] = 0;
+    $handler->display->display_options['fields']['title']['link_to_node'] = 1;
+    /* Sort criterion: Content: Post date */
+    $handler->display->display_options['sorts']['created']['id'] = 'created';
+    $handler->display->display_options['sorts']['created']['table'] = 'node';
+    $handler->display->display_options['sorts']['created']['field'] = 'created';
+    $handler->display->display_options['sorts']['created']['order'] = 'DESC';
+    /* Filter criterion: Content: Type */
+    $handler->display->display_options['filters']['type']['id'] = 'type';
+    $handler->display->display_options['filters']['type']['table'] = 'node';
+    $handler->display->display_options['filters']['type']['field'] = 'type';
+    $handler->display->display_options['filters']['type']['value'] = array(
+      $node => $node,
+    );
+    /* Filter criterion: Content: Title */
+    $handler->display->display_options['filters']['title']['id'] = 'title';
+    $handler->display->display_options['filters']['title']['table'] = 'node';
+    $handler->display->display_options['filters']['title']['field'] = 'title';
+    $handler->display->display_options['filters']['title']['operator'] = 'allwords';
+    $handler->display->display_options['filters']['title']['exposed'] = TRUE;
+    $handler->display->display_options['filters']['title']['expose']['operator_id'] = 'title_op';
+    $handler->display->display_options['filters']['title']['expose']['label'] = 'Title';
+    $handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
+    $handler->display->display_options['filters']['title']['expose']['identifier'] = 'title';
+    $handler->display->display_options['filters']['title']['expose']['required'] = 1;
+    $handler->display->display_options['filters']['title']['expose']['multiple'] = FALSE;
+
+    /* Display: Page */
+    $handler = $view->new_display('page', 'Page', 'page');
+    $handler->display->display_options['path'] = $node . '_nodes_like_this';
+    // (Export ends here.)
+
+    // Add view to list of views to provide.
+    $views[$view->name] = $view;
+  } // ...Repeat all of the above for each view the module should provide.
+
+  // At the end, return array of default views.
+  return $views;
+}
+
+
+/*
+ * Implements hook_form_alter()
+ * This is what adds the javascript to the node editing page.
+ */
+function nodes_like_this_form_alter(&$form, &$form_state, $form_id) {
+  $nodes = variable_get('nodes_like_this_content_types', array());
+  foreach ($nodes as $node => $name) {
+    if ($form_id == $node . "_node_form") {
+      $path = drupal_get_path('module', 'nodes_like_this');
+      drupal_add_js("$path/nodes_like_this.js");
+    }
+  }
+}
+
+/*
+ * Implements hook_form_validate()
+ * This is what adds the javascript to the node editing page after an error.
+ */
+function nodes_like_this_form_validate(&$form, &$form_state) {
+  $form_id = $form['#id'];
+  $nodes = variable_get('nodes_like_this_content_types', array());
+  foreach ($nodes as $node => $name) {
+    if ($form_id == $node . "_node_form") {
+      $path = drupal_get_path('module', 'nodes_like_this');
+      drupal_add_js("$path/nodes_like_this.js");
+    }
+  }
+}
+
+/**
+* Implementation of hook_simpletest().
+*/
+function nodes_like_this_simpletest() {
+  $module_name = 'nodes_like_this'; // Change this to your module name.
+  $dir = drupal_get_path('module', $module_name) . '/tests';
+  $tests = file_scan_directory($dir, '\.test$');
+  return array_keys($tests);
+}

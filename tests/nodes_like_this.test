@@ -1,0 +1,135 @@
+<?php
+
+/**
+ * @file
+ * An example of simpletest tests to accompany the tutorial at
+ * http://drupal.org/node/890654.
+ */
+
+class NodesLikeThisTest extends DrupalWebTestCase {
+  protected $privileged_user;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Nodes Like This',
+      'description' => 'Ensure that Nodes Like This setup properly creates Views.  Does not test JavaScript.',
+      'group' => 'Nodes Like This',
+    );
+  }
+
+  public function setUp() {
+    //$modules = func_get_args();
+    parent::setUp('nodes_like_this', 'ctools', 'views', 'views_ui', 'views_json');
+    // Login as root admin
+    // create a new user with some permissions you need; then log in.
+    $perms = user_role_permissions(array(array_search('administrator', user_roles()) => 'administrator'));
+    $perms = array_keys($perms[array_search('administrator', user_roles())]);
+    $admin = $this->drupalCreateUser($perms);
+ 
+    // Login is the super user.
+    $this->drupalLogin($admin);
+  }
+
+  public function testActivateBasicNodesLikeThis() {
+    $this->drupalGet('admin/config');
+    // Make sure we don't get a 401 unauthorized response:
+    $this->assertResponse(200, 'User is allowed to edit the content.');
+    $this->assertText(t('Nodes like this module settings'));
+
+
+    $this->drupalGet('admin/config/content/nodes_like_this');
+    // Make sure we don't get a 401 unauthorized response:
+    $this->assertResponse(200, 'User is allowed to edit the content.');
+    $this->assertText(t('Select the content types for which you want to see similar nodes.'));
+    $this->assertRaw('value="' . t('Save configuration') . '"');
+
+    // Enable Nodes Like This for Basic Pages.
+    $edit = array();
+    $content_types = array('page');
+    $edit['nodes_like_this_content_types[]'] = $content_types;
+    $this->drupalPost('admin/config/content/nodes_like_this', $edit, t('Save configuration'));
+    // Make sure we don't get a 401 unauthorized response:
+    $this->assertResponse(200, 'User is allowed to save the content.');
+
+    // Looking for title text in the page to determine whether we were
+    // successful opening edit form.
+    $this->assertText(t('The configuration options have been saved.'), "Configuration saved");
+
+    // Ensure that a new View for basic_nodes_like_this exists.
+    cache_clear_all();
+    $this->drupalGet('admin/structure/views');
+    $this->assertResponse(200, 'Views list exists.');
+    $this->assertText('page ' . t('nodes like this'), "View added");
+
+    $this->drupalGet('admin/structure/views/view/page_nodes_like_this/edit');
+    $this->assertResponse(200, 'View edit page exists.');
+
+    // This isn't working, and may be related to http://drupal.org/node/1422634
+/*
+    //$this->drupalGet('page_nodes_like_this');
+    $this->clickLink('view Page');
+    $this->assertResponse(200, 'View page exists.');
+*/
+  }
+
+  public function testBasicArticleNodesLikeThis() {
+    // Create an Article.
+    $article_name = $this->randomName(10);
+    $article_name_full = $article_name . ' ' . $this->randomName(5);
+    $article_node = array(
+      'type' => 'article',
+      'title' => $article_name . ' ' . $this->randomName(5),
+      'body' => array(LANGUAGE_NONE => array(array($this->randomName(64)))),
+    );
+    $article_node = $this->drupalCreateNode($article_node);
+    // Create a Basic Page.
+    $page_name = $this->randomName(10) . ' ' . $this->randomName(5);
+    $page_node = array(
+      'type' => 'page',
+      'title' => $page_name,
+      'body' => array(LANGUAGE_NONE => array(array($this->randomName(64)))),
+    );
+    $page_node = $this->drupalCreateNode($page_node);
+
+    // Enable Nodes Like This for both node types.
+    $edit = array();
+    $content_types = array('page','article');
+    $edit['nodes_like_this_content_types[]'] = $content_types;
+    $this->drupalPost('admin/config/content/nodes_like_this', $edit, t('Save configuration'));
+    // Make sure we don't get a 401 unauthorized response:
+    $this->assertResponse(200, 'User is allowed to save the content.');
+
+    // Looking for title text in the page to determine whether we were
+    // successful opening edit form.
+    $this->assertText(t('The configuration options have been saved.'), "Configuration saved");
+
+    // Ensure that a new View for basic_nodes_like_this exists.
+    cache_clear_all();
+    $this->drupalGet('admin/structure/views');
+    $this->assertText(t('page nodes like this'), "Basic Page view added");
+    $this->assertText(t('article nodes like this'), "Article view added");
+
+    // This isn't working, and may be related to http://drupal.org/node/1422634
+/*
+    // Now look at the page view and verify the page was found.
+    $this->drupalGet('page_nodes_like_this', array('query'=>array('title'=>$page_name)));
+    $this->assertRaw('<div class="view-content">', 'page view returned content');
+    $this->assertRaw('{"nodes":[{"node":{"title":"' . $page_name . '"}}]}', 'page view returned page');
+
+    // Now look at the page view for a different name and verify the page was not found.
+    $this->drupalGet('page_nodes_like_this', array('query'=>array('title'=>'x' . $page_name)));
+    $this->assertRaw('<div class="view-content">', 'page view returned content');
+    $this->assertRaw('{"nodes":[]}', 'page view returned no page');
+
+    // Now look at the Article view and verify the Article was found.
+    $this->drupalGet('article_nodes_like_this', array('query'=>array('title'=>$article_name)));
+    $this->assertRaw('<div class="view-content">', 'Article view returned content');
+    $this->assertRaw('{"nodes":[{"node":{"title":"' . $article_name_full . '"}}]}', 'Article view returned article');
+
+    // Now look at the Article view for a different name and verify the Article was not found.
+    $this->drupalGet('article_nodes_like_this', array('query'=>array('title'=>'x' . $article_name)));
+    $this->assertRaw('<div class="view-content">', 'Article view returned content');
+    $this->assertRaw('{"nodes":[]}', 'Article view returned no article');
+   */
+  }
+}

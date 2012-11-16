@@ -1,0 +1,8 @@
+name = Nodes Like This
+description = List similar nodes when creating or editing select node types.
+core = 7.x
+dependencies[] = views
+dependencies[] = views_ui
+dependencies[] = views_json
+dependencies[] = ctools
+files[] = tests/nodes_like_this.test
